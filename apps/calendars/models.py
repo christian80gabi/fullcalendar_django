@@ -9,10 +9,10 @@ def generate_secret_key(number_of_chars):
     import secrets
     import string
 
-    text = ''.join(
+    return ''.join(
         secrets.choice(string.ascii_uppercase + string.digits)
-        for _ in range(number_of_chars))
-    return str(text)
+        for _ in range(number_of_chars)
+    )
 
 
 class Event(models.Model):

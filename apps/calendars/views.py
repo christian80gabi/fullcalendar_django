@@ -8,10 +8,7 @@ from .forms import EventForm
 
 def get_object(area, model_class):
     _id = area.kwargs.get('id')
-    obj = None
-    if _id is not None:
-        obj = get_object_or_404(model_class, id=_id)
-    return obj
+    return get_object_or_404(model_class, id=_id) if _id is not None else None
 
 
 class Calendar1View(View):
@@ -27,9 +24,7 @@ class Calendar1View(View):
         return render(request, self.template, self.context)
 
     def post(self, request, *args, **kwargs):
-        obj = get_object(self, Event)
-
-        if obj:
+        if obj := get_object(self, Event):
             self.form = self.form(request.POST, instance=obj)
         else:
             self.form = self.form(request.POST)
