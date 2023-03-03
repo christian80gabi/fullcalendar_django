@@ -1,68 +1,171 @@
+import datetime
 from django.utils import timezone
+from django.utils.crypto import get_random_string
 from django.utils.translation import gettext_lazy as _
 from django.db import models
 
-
-# using random.choices() - generating random strings
-# ---------------------------------------------------------------------------------------------------------------------
-def generate_secret_key(number_of_chars):
-    import secrets
-    import string
-
-    text = ''.join(
-        secrets.choice(string.ascii_uppercase + string.digits)
-        for _ in range(number_of_chars))
-    return str(text)
+from .services import (
+    repeat_it_by_day, repeat_it_by_week, repeat_it_by_month, repeat_it_by_year
+)
 
 
-class Event(models.Model):
+class RepeatUnit(models.TextChoices):
+    DAY = 'DAY', _('Jour')
+    WEEK = 'WEEK', _('Semaine')
+    MONTH = 'MONTH', _('Mois')
+    YEAR = 'YEAR', _('Année')
 
-    class Type(models.TextChoices):
-        NONE = None, _('...')
-        PHONE_CALL = 'PHONE CALL', _('Make a phone call')
-        MEETING = 'MEETING', _('Schedule a meeting')
-        EMAIL = 'EMAIL', _('Send an email')
-        MAKE_OFFER = 'OFFER', _('Make an offer')
 
-    class Status(models.TextChoices):
-        NONE = None, _('...')
-        SCHEDULED = 'SCHEDULED', _('Scheduled')
-        CANCELLED = 'CANCELLED', _('Cancelled')
-        DONE = 'DONE', _('Done')
+class DaysOfWeek(models.IntegerChoices):
+        MONDAY = 1, _('Lundi')
+        TUESDAY = 2, _('Mardi')
+        WEDNESDAY = 3, _('Mercredi')
+        THURSDAY = 4, _('Jeudi')
+        FRIDAY = 5, _('Vendredi')
+        SATURDAY = 6, _('Samedi')
+        SUNDAY = 7, _('Dimanche')
 
-    reference = models.CharField(max_length=50, unique=True, blank=True)
-    type = models.CharField(
-        max_length=50,
-        choices=Type.choices,
-        default=Type.NONE,
-        db_index=True,
-    )
-    name = models.CharField(max_length=255)
-    scheduled_datetime = models.DateTimeField(default=timezone.now)
-    effective_datetime = models.DateTimeField()
-    status = models.CharField(
-        max_length=50,
-        choices=Status.choices,
-        default=Status.NONE,
-        db_index=True,
-    )
-    comment = models.TextField()
-    create_date = models.DateTimeField(auto_now_add=True)
-    update_date = models.DateTimeField(auto_now=True, auto_now_add=False)
+
+class AbstractModelBase(models.Model):
+    reference = models.CharField(max_length=100, blank=True, unique=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    updated_date = models.DateTimeField(auto_now=True, auto_now_add=False)
+
+    class Meta:
+        abstract = True
 
     def save(self, *args, **kwargs):
         if not self.reference:
-            self.reference = generate_secret_key(50)
+            self.reference = get_random_string(50)
 
-        super(Event, self).save(*args, **kwargs)
+        super(AbstractModelBase, self).save(*args, **kwargs)
+
+
+class BusinessHour(AbstractModelBase):
+    name = models.CharField(max_length=100)
+    start_time = models.TimeField(null=True)
+    end_time = models.TimeField(null=True)
+    days_of_week = models.CharField(max_length=22, blank=True, default='1, 2, 3, 4, 5')  # Should be stored like this '[1, 2, 3, 4, 5, 6, 7]'
+
+    # return list(map(int, self.days_of_week))  # Only works when days_of_week look like "1, 2, 3, 4"
+    @property
+    def workweek(self):
+        if not self.days_of_week:
+            return []
+        tab_string = self.days_of_week
+
+        if '[' in tab_string:
+            tab_string = tab_string.strip("[]")
+
+        if ',' in tab_string:
+            tab_string = tab_string.split(", ")
+
+        if "'" in tab_string:
+            tab_string = tab_string.strip("'")
+
+        return [int(i.strip("'") if "'" in i else i) for i in tab_string]
+    
+    @property
+    def workweek_verbose(self):   
+        # return [value for  i, (key, value) in enumerate(self.DaysOfWeek.choices) if key in self.workweek]     
+        return [
+            value for key, value in DaysOfWeek.choices if key in self.workweek
+        ]
+
+    def __str__(self) -> str:
+        return f'{self.name} days: {self.workweek.__str__()} from: {self.start_time.__str__()} to: {self.end_time.__str__()}'
+
+
+class StaffBusinessHour(AbstractModelBase):
+    staff = models.CharField(max_length=200)
+    business_hour = models.ManyToManyField(BusinessHour)
 
     @property
-    def type_label(self):
-        return self.get_type_display()
+    def business_hours(self):
+        return BusinessHour.objects.filter(staffbusinesshour=self)
+
+    def __str__(self) -> str:
+        return f'{self.staff} {[business_hour.__str__() for business_hour in self.business_hours].__str__()}'
+
+
+class Event(AbstractModelBase):
+    name = models.CharField(max_length=100)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
+    location = models.CharField(max_length=300, null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+    color = models.CharField(max_length=200, null=True, blank=True)
+    # Repeat an event
+    is_repeated = models.BooleanField(default=False)
+    # Recurrence : 
+    # every [recurrence] [repeat_by] until [occurrence] or [repeat_end_date]
+    # eg: every 2 DAYS until 12 occurrences ; every 1 MONTHS until 25-12-2036 
+    repeat_by = models.CharField(max_length=5, choices=RepeatUnit.choices, default=RepeatUnit.YEAR, null=True, blank=True)
+    recurrence = models.IntegerField(default=1, null=True, blank=True)
+    # END -----------------------------------------------------------------------------
+    repeat_end_date = models.DateField(null=True, blank=True) # If None then never ends
+    # OR
+    occurrence = models.IntegerField(default=0, null=True, blank=True)  # 1, 2... Jours, mois...  / step
+    # OR NEVER ENDS
+    # If repeated, store the reference of the first event to link with
+    # It will help to know the first occurrence and the copies or an occurrence series of an event
+    repeat_parent = models.CharField(max_length=100, null=True, blank=True)
 
     @property
-    def status_label(self):
-        return self.get_status_display()
+    def actual_end_date(self):
+        return self.end_date or self.start_date
 
-    def __str__(self):
-        return self.name
+    @property
+    def actual_start_time(self):
+        return self.start_time or datetime.time(0, 0, 0)
+    
+    @property
+    def actual_end_time(self):
+        return self.end_time or datetime.time(23, 59, 59)
+    
+    def repeat_it(self) -> str:
+        if self.is_repeated and self.recurrence and self.recurrence >= 1 and self.repeat_by:
+            if self.repeat_by == RepeatUnit.DAY:
+
+                print('REPEAT BY DAY')
+                
+                return repeat_it_by_day(self=self)
+
+            elif self.repeat_by == RepeatUnit.WEEK:
+
+                print('REPEAT BY WEEK')
+                
+                return repeat_it_by_week(self=self)
+
+            elif self.repeat_by == RepeatUnit.MONTH:
+
+                print('REPEAT BY MONTH')
+                
+                return repeat_it_by_month(self)
+
+            elif self.repeat_by == RepeatUnit.YEAR:
+
+                print('REPEAT BY YEAR')
+
+                return repeat_it_by_year(self)
+                
+        return 'NEVER REPEAT IT.'
+
+   # If the event take all the day or partially
+    @property
+    def allDay(self):
+        return (
+            self.actual_start_time == datetime.time(0, 0, 0) or not self.start_time
+        ) and (
+            self.actual_end_time == datetime.time(23, 59, 59) or not self.end_time
+        )
+    
+    # Return the start date and the end date of a holiday depending if it's variable or not
+    @property
+    def datetimes(self):
+        return datetime.datetime.combine(self.start_date, self.actual_start_time), datetime.datetime.combine(self.actual_end_date, self.actual_end_time)
+
+    def __str__(self) -> str:
+        return f'{self.name} from {self.datetimes[0].date()} to {self.datetimes[1].date()}.'

@@ -2,41 +2,57 @@ from django import forms
 from .models import Event
 
 
-class EventForm(forms.ModelForm):
-
+class EventModelForm(forms.ModelForm):
     class Meta:
         model = Event
-        fields = [
-            'type', 'name', 'scheduled_datetime', 'effective_datetime',
-            'status', 'comment'
-        ]
+        exclude = ('reference', 'created_date', 'updated_date', 'repeat_parent')
         widgets = {
-            'type':
-            forms.Select(attrs={
-                'class': 'form-select',
+            'name': forms.TextInput(attrs={
+                'class': 'form-control'
             }),
-            'name':
-            forms.TextInput(attrs={
+            'start_date': forms.DateInput(attrs={
                 'class': 'form-control',
+                'type': 'date'
             }),
-            'scheduled_datetime':
-            forms.DateTimeInput(attrs={
+            'end_date': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'datetime-local',
+                'type': 'date'
             }),
-            'effective_datetime':
-            forms.DateTimeInput(attrs={
+            'start_time': forms.TimeInput(attrs={
                 'class': 'form-control',
-                'type': 'datetime-local',
+                'type': 'time'
             }),
-            'status':
-            forms.Select(attrs={
-                'class': 'form-select',
+            'end_time': forms.TimeInput(attrs={
+                'class': 'form-control',
+                'type': 'time'
             }),
-            'comment':
-            forms.Textarea(attrs={
+            'location': forms.TextInput(attrs={
+                'class': 'form-control'
+            }),
+            'color': forms.TextInput(attrs={
+                'class': 'form-control',
+                'value': '#ff0000',
+                'type': 'color'
+            }),
+            'description': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': '3',
                 'max-rows': '6',
+            }),
+            'is_repeated': forms.CheckboxInput(attrs={
+                'class': 'form-check form-check-input'
+            }),
+            'repeat_by': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'recurrence': forms.NumberInput(attrs={
+                'class': 'form-control'
+            }),
+            'repeat_end_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date'
+            }),
+            'occurrence': forms.NumberInput(attrs={
+                'class': 'form-control'
             }),
         }

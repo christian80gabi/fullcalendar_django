@@ -1,13 +1,19 @@
 from django.urls import path
+from .views import (
+    CalendarView,
+    load_event_form,
+    EventSaveView,
+    EventDeleteView,
+)
 
-from .views import Calendar1View, load_calendar_form, update_calendar_form
-
+app_name = 'calendars'
 urlpatterns = [
-    path('', Calendar1View.as_view(), name='calendar_1'),
-    path('update-event/<int:id>/', Calendar1View.as_view(),
-         name='update-even'),
-    path('add-event-form/', load_calendar_form, name='load-calendar-form'),
-    path('update-event-form/',
-         update_calendar_form,
-         name='update-calendar-form'),
+    path('', CalendarView.as_view(), name='calendar'),
+
+    # Calendar | Event
+    # -----------------------------------------------------------------------------------------------------------------
+    path('events/load-form/', load_event_form, name='event-load-form'),
+    path('events/create/', EventSaveView.as_view(), name='event-create'),
+    path('events/<int:id>/update/', EventSaveView.as_view(), name='event-update'),
+    path('events/<int:id>/delete/', EventDeleteView.as_view(), name='event-delete'),
 ]

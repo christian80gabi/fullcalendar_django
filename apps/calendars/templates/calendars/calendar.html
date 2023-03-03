@@ -1,0 +1,289 @@
+{% {% extends 'base.html' %} %}
+
+{% block header %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var initialLocaleCode = 'fr';
+        var localeSelectorEl = document.getElementById('locale-selector');
+
+        var doubleClick = 0;
+        var clickTimer = 0;
+
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            themeSystem: 'bootstrap5',
+            headerToolbar: {
+                left: 'addEventButton dayGridMonth,timeGridWeek,timeGridDay,listMonth',
+                center: 'title',
+                right: 'today prev,next'
+            },
+            locale: initialLocaleCode, // the initial locale // the initial locale. if not specified, uses the first one
+            buttonIcons: false, // show the prev/next text
+            weekNumbers: true,
+            navLinks: true, // can click day/week names to navigate views
+            editable: true,
+            dayMaxEvents: true, // allow "more" link when too many events
+
+            dayMaxEventRows: true,
+            nowIndicator: true,
+            selectable: true,
+            unselectAuto: true,
+            selectOverlap: true,
+
+            businessHours: [ // specify an array instead
+                {% for business_hour in staff_business_hour.business_hours %}
+                    {
+                        daysOfWeek: {{ business_hour.workweek }},
+                        startTime: '{{ business_hour.start_time|date:"H:i" }}',
+                        endTime: '{{ business_hour.end_time|date:"H:i" }}'   
+                    },
+                {% endfor %}
+            ],
+
+            select: function(info) {
+            console.log('select', info);
+
+            _start = new Date(info.startStr);
+            _start.setDate(_start.getDate() + 1);
+            _end = new Date(info.endStr);
+
+            console.log(_start)
+            console.log(_end)
+
+            let g_date = _start.getFullYear() + '-' + (_start.getMonth() + 1) + '-' + _start.getDate();
+            let g_time = _start.getHours() + ":" + _start.getMinutes() + ":" + _start.getSeconds();
+            let g_start = g_date + ' ' + g_time;
+            console.log(g_start);
+
+            let scheduled = document.getElementById('id_scheduled_datetime');
+            let effective = document.getElementById('id_effective_datetime');
+            let url = '{% url 'load-calendar-form' %}'
+
+            if (info.allDay) {
+                if(_start.getDate() !== _end.getDate()){
+                    console.log('Select and hold! allDay true');
+        
+                    loadEventForm('None', g_date, _end, 'None', 'None');
+                }
+            } else {
+                console.log('Select and allDay false');
+
+                loadEventForm('None', g_date, _end, 'None', 'None');
+            }
+            },
+            
+            dateClick: function(info) {
+            console.log('dateClick', info);
+            var singleClick = info.date.toUTCString();
+
+            if(doubleClick==singleClick){
+                console.log('Double-click!');
+
+                loadEventForm('None', info.dateStr, 'None', 'None', 'None');
+
+                doubleClick = null;
+            }else{
+                doubleClick=info.date.toUTCString();
+                clearInterval(clickTimer);
+                clickTimer = setInterval(function(){
+                    doubleClick = null;
+                    clearInterval(clickTimer);
+                }, 500);
+            }
+            },
+
+            eventClick: function(info) {
+            info.jsEvent.preventDefault(); // don't let the browser navigate
+            console.log(info);
+        
+            if (info.event.url) {
+                // window.open(info.event.url);
+            };
+
+            console.log(info.event.extendedProps.objectId);
+
+            if (info.event.extendedProps.objectId) {
+                loadEventForm(info.event.extendedProps.objectId, 'None', 'None', 'None', 'None');
+            }
+            },
+            
+            /*selectAllow: function(info) {
+            console.log(info)
+            },*/
+
+            customButtons: {
+                addEventButton: {
+                    text: 'New event',
+                    click: function() {
+                        loadEventForm('None', 'None', 'None', 'None', 'None');
+                    }
+                }
+            },
+            events: [
+            {% for event in object_list %} 
+                {
+                objectId: '{{ event.id }}',
+                title: '{{ event.name }}',
+                start: '{{ event.scheduled_datetime|date:"Y-m-d" }}T{{ event.scheduled_datetime|date:"H:i:s" }}',
+                url: 'https://sandbox02.host309.weberp.xyz:2374/calendars/2',
+                /*end: '{{ event.effective_datetime|date:"Y-m-d" }}T{{ event.effective_datetime|date:"H:i:s" }}',*/
+                /*display: 'background',*/
+                extendedProps: {
+                    status: '{{ event.status }}'
+                }
+                },
+            {% endfor %}
+            ],
+            // events: 'https://fullcalendar.io/api/demo-feeds/events.json',
+            events: [
+                {% for event in events %} 
+                    {
+                        objectId: '{{ event.reference }}',
+                        title: '{{ event.name }}',
+                        start: '{{ event.datetimes.0|date:"Y-m-d" }}T{{ event.datetimes.0|date:"H:i:s" }}',
+                        end: '{{ event.datetimes.1|date:"Y-m-d" }}T{{ event.datetimes.1|date:"H:i:s" }}',
+                        allDay: {% if event.allDay %} true {% else %} false {% endif %},
+                        backgroundColor: {% if event.color %} '{{ event.color }}' {% else %}'#7db6bf' {% endif %},
+                    },
+                {% endfor %}
+            ],
+            views: {
+            dayGridMonth: {
+                dayMaxEventRows: 6 // adjust to 6 only for timeGridWeek/timeGridDay
+            },
+            timeGridWeek: {
+                dayMaxEventRows: 6, // adjust to 6 only for timeGridWeek/timeGridDay
+                selectMirror: true,
+            }
+            },
+        });
+        calendar.render();
+
+        // build the locale selector's options
+        calendar.getAvailableLocaleCodes().forEach(function(localeCode) {
+            var optionEl = document.createElement('option');
+            optionEl.value = localeCode;
+            optionEl.selected = localeCode == initialLocaleCode;
+            optionEl.innerText = localeCode;
+            localeSelectorEl.appendChild(optionEl);
+        });
+
+        // when the selected option changes, dynamically change the calendar option
+        localeSelectorEl.addEventListener('change', function() {
+            if (this.value) {
+            calendar.setOption('locale', this.value);
+            }
+        });
+    });
+</script>
+{% endblock %}
+
+{% block content %}
+<section id="calendar-section" class="m-3">
+    <div id='top' class="form-floating my-3 w-25">
+        <select class="form-select" id='locale-selector'></select>
+        <label for="locale-selector">Langue</label>
+    </div>
+
+    <div id='calendar'></div>
+</section>
+    
+
+<!-- Delete Modal start -->
+<div class="modal fade" tabindex="-1" role="dialog" id="deleteObject{{ object.id }}" aria-hidden="true" aria-labelledby="deleteObjectLabel{{ object.id }}">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content rounded-6 shadow">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title" id="deleteObjectLabel{{ object.id }}"><i class="bi bi-trash2"></i>
+                    Suppression
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-0">
+                <h6>Voulez-vous vraiment supprimer ?</h6>
+            </div>
+            <div class="modal-footer flex-column border-top-0">
+                <form class="w-100" method="post" action="">{% csrf_token %}
+                    <button type="submit" class="btn btn-lg btn-danger w-100 mx-0 mb-2">
+                        Supprimer
+                    </button>
+                    <button type="button" class="btn btn-lg btn-light w-100 mx-0" data-bs-dismiss="modal">
+                        Annuler
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Delete Modal end -->
+
+<!-- Modal -->
+<div class="modal fade" id="calendarFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="formModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div id="modalContent" class="modal-content rounded-4 shadow">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title" id="formModalLabel">Calendrier</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-0">
+                ...
+            </div>
+            <div class="modal-footer flex-column border-top-0">
+                <button type="button" class="btn btn-lg btn-primary w-100 mx-0 mb-2">Enregistrer</button>
+                <button type="button" class="btn btn-lg btn-light w-100 mx-0" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!--End Modal-->
+
+<script>
+    function loadEventForm(objectId, startDate, endDate, startTime, endTime) {
+        let url = "{% url 'calendars:event-load-form' %}"
+        console.log(url);
+
+        fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                object_id: objectId,
+                start_date: startDate,
+                end_date: endDate,
+                start_time: startTime, 
+                end_time: endTime
+            })
+        })
+        .then((response) => {
+            if (response.ok) {
+                // return response.json();
+                return response.text();
+            } else {
+                throw new Error("Something went wrong");
+            }
+        })
+        .then((html) => {
+            console.log("SUCCESS: ", html);
+            // const modal = document.querySelector('#calendarFormModal');
+            // const modalContent = modal ? modal.querySelector('#modalContent') : null;
+            const modalContent = document.querySelector('#calendarFormModal #modalContent');
+
+            modalContent.insertAdjacentHTML("afterend", html);
+            modalContent.parentNode.removeChild(modalContent);
+
+            // modalContent.replaceWith(html);
+            // modalContent.innerHTML = html;
+
+            const calendarFormModal = new bootstrap.Modal('#calendarFormModal', {});
+            calendarFormModal.show();
+
+            
+        })
+        .catch((error) => {
+            console.log("ERROR: ", error);
+        });
+    }
+</script>
+{% endblock %}

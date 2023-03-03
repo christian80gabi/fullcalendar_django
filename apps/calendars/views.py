@@ -1,23 +1,13 @@
-from datetime import datetime
-from django import forms
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect
 from django.views import View
 from .models import Event
-from .forms import EventForm
+from .forms import EventModelForm
+from .services import get_object, is_ajax
 
 
-def get_object(area, model_class):
-    _id = area.kwargs.get('id')
-    obj = None
-    if _id is not None:
-        obj = get_object_or_404(model_class, id=_id)
-    return obj
-
-
-class Calendar1View(View):
+class CalendarView(View):
     template = "calendar.html"
     context = {}
-    form = EventForm
 
     def get(self, request, *args, **kwargs):
         object_list = Event.objects.all()
@@ -26,87 +16,68 @@ class Calendar1View(View):
 
         return render(request, self.template, self.context)
 
+
+'''------------------------------------------- EVENT VIEWS --------------------------------------------------------'''
+
+
+# Calendar | Event Load Form View
+# ---------------------------------------------------------------------------------------------------------------------
+def load_event_form(request):  # AJAX CALL
+    object_id = request.POST.get('object_id') if is_ajax(request=request) else None
+    print('object_id', object_id, type(object_id))
+
+    obj = None
+    # CREATE
+    form = EventModelForm()
+
+    # UPDATE
+    if object_id and object_id != 'None':
+        obj = Event.objects.get(id=object_id)
+        form = EventModelForm(instance=obj)
+
+    return render(
+        request,
+        "calendars/event_form.html",
+        {
+            "form": form,
+            "object": obj,
+        }
+    )
+
+
+# Calendar | Event Save View
+# ---------------------------------------------------------------------------------------------------------------------
+class EventSaveView(View):
+    template_name = 'calendars/calendar.html'
+    context = {}
+
+    def post(self, request, *args, **kwargs):
+        if obj := get_object(self, Event):
+            form = EventModelForm(request.POST, instance=obj)
+        else:
+            form = EventModelForm(request.POST)
+
+        # if UPDATE
+        # - update all the series or just the current event?
+
+        if form.is_valid():
+            obj = form.save()
+            obj.repeat_it()
+
+            return redirect('calendars:calendar')
+
+        return render(request, self.template_name, self.context)
+
+
+# Recruitment | Event Delete View
+# ---------------------------------------------------------------------------------------------------------------------
+class EventDeleteView(View):
+    template_name = 'calendars/calendar.html'
+    context = {}
+
     def post(self, request, *args, **kwargs):
         obj = get_object(self, Event)
-
-        if obj:
-            self.form = self.form(request.POST, instance=obj)
-        else:
-            self.form = self.form(request.POST)
-
-        if self.form.is_valid():
-            self.form.save()
-            return redirect('calendar_1')
-
+        if obj is not None:
+            obj.delete()
+            return redirect('core:calendar')
         return render(request, self.template, self.context)
-
-
-def load_calendar_form(request):  # AJAX CALL
-    start_date = datetime.now()
-    if request.is_ajax():
-        start_date = request.POST.get('start_date')
-        print("AJAX")
-
-    print('DATA', start_date, type(start_date))
-
-    try:
-        _date = datetime.strptime(start_date, '%Y-%m-%d %H:%M:%S')
-    except:
-        try:
-            _date = datetime.strptime(start_date, '%Y-%m-%d')
-        except:
-            _date = None
-    print('DATE after conversion', _date, type(_date))
-
-    form = EventForm(initial={
-        'scheduled_datetime': _date,
-        'effective_datetime': _date,
-    })
-    form.fields['scheduled_datetime'].widget = forms.DateTimeInput(
-        attrs={
-            'class': 'form-control',
-            # 'type': 'datetime-local',
-        })
-    form.fields['effective_datetime'].widget = forms.DateTimeInput(
-        attrs={
-            'class': 'form-control',
-            # 'type': 'datetime-local',
-        })
-
-    # data = {}
-    # data['_date'] = _date
-    # return JsonResponse(data)
-    return render(request, 'event_add_form.html', {'form': form})
-
-
-def update_calendar_form(request):  # AJAX CALL
-    object_id = None
-
-    if request.is_ajax():
-        object_id = request.POST.get('object_id')
-        print("AJAX")
-
-    print('DATA', object_id, type(object_id))
-
-    if object_id:
-        try:
-            obj = Event.objects.get(id=object_id)
-        except:
-            pass
-
-        if obj:
-            print(obj)
-            form = EventForm(instance=obj)
-            form.fields['scheduled_datetime'].widget = forms.DateTimeInput(
-                attrs={
-                    'class': 'form-control',
-                })
-            form.fields['effective_datetime'].widget = forms.DateTimeInput(
-                attrs={
-                    'class': 'form-control',
-                })
-
-    return render(request, 'event_update_form.html', {
-        'form': form,
-        'object': obj
-    })
