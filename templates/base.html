@@ -1,4 +1,5 @@
 {% load static %}
+{% load tz %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -18,6 +19,14 @@
             bottom: 20px;
             right: 20px;
             display: none;
+        }
+
+        .section-anchor {
+            opacity: 0
+        }
+        
+        .section-anchor:hover {
+            opacity: 1;
         }
     </style>
     {% block header %}
@@ -46,11 +55,102 @@
     <main>
         {% block content %}
         {% endblock %}
+
+         <!-- NotificationToast start -->
+         <div aria-live="polite" aria-atomic="true" class="position-relative">
+            <div class="toast-container position-absolute top-0 end-0 p-3">
+                {% for message in messages %}
+                    <!-- Toast -->
+                    <div class="toast text-white  {% if message.tags %} {{ message.tags }} {% else %} bg-primary {% endif %} show" role="alert" aria-live="assertive"
+                        aria-atomic="true">
+                        <div class="toast-header">
+                            <i class="bi bi-info-circle-fill text-primary me-2" role="img" aria-label="Info"
+                            style="font-size: 1rem;"></i>
+                            <strong class="me-auto"> Info</strong>
+                            <small class="text-muted">{% now "SHORT_DATETIME_FORMAT" %}</small>
+                            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                        <div class="toast-body">
+                            {{ message }}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        <!-- NotificationToast end -->
+
+        <!-- Modal -->
+        <div class="modal fade" id="baseFormModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="formModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div id="modalContent" class="modal-content rounded-4 shadow">
+                    <div class="modal-header border-bottom-0">
+                        <h5 class="modal-title" id="formModalLabel">Base</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body py-0">
+                        ...
+                    </div>
+                    <div class="modal-footer flex-column border-top-0">
+                        <button type="button" class="btn btn-lg btn-primary w-100 mx-0 mb-2">Enregistrer</button>
+                        <button type="button" class="btn btn-lg btn-light w-100 mx-0" data-bs-dismiss="modal">Fermer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--End Modal-->
+
+        <!-- Delete Modal start -->
+        <div class="modal fade" tabindex="-1" role="dialog" id="deleteFormModal" aria-hidden="true" aria-labelledby="deleteObjectLabel">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content rounded-6 shadow">
+                    <div class="modal-header border-bottom-0">
+                        <h5 class="modal-title" id="deleteObjectLabel"><i class="bi bi-trash2"></i>
+                            Suppression
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body py-0">
+                        <h6>Voulez-vous vraiment supprimer ?</h6>
+                    </div>
+                    <div class="modal-footer flex-column border-top-0">
+                        <form class="w-100" method="post" action="" name="delete-form-modal" id="delete-form-modal">{% csrf_token %}
+                            <button type="submit" class="btn btn-lg btn-danger w-100 mx-0 mb-2">
+                                Supprimer
+                            </button>
+                            <button type="button" class="btn btn-lg btn-light w-100 mx-0" data-bs-dismiss="modal">
+                                Annuler
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Delete Modal end -->
     </main>
 
     <button type="button" class="btn btn-dark btn-floating btn-lg" id="btn-back-to-top"><i class="bi bi-arrow-up"></i></button>
     <script>
-        //Get the button
+        // ToolTip
+        // ------------------------------------------------------------------------------
+        let tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        let tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+
+        // Notifications
+        // ------------------------------------------------------------------------------
+        const option = {
+            animation: true,
+            delay: 5000, // 10s
+            autohide: true,
+        }
+        let toastElList = [].slice.call(document.querySelectorAll('.toast'))
+        let toastList = toastElList.map(function (toastEl) {
+            return new bootstrap.Toast(toastEl, option)
+        })
+
+        // Button "back-to-top"
+        // ------------------------------------------------------------------------------
         let mybutton = document.getElementById("btn-back-to-top");
 
         // When the user scrolls down 20px from the top of the document, show the button
@@ -71,6 +171,36 @@
         function backToTop() {
             document.body.scrollTop = 0;
             document.documentElement.scrollTop = 0;
+        }
+
+        // Load Delete Form Modal
+        // ------------------------------------------------------------------------------
+        function changeFormAction(actionName) {
+            console.log(actionName);
+            document.getElementById('delete-form-modal').action = actionName;
+        }
+    
+        function loadDeleteForm(url) {
+            changeFormAction(url);
+            $('#deleteFormModal').modal('show')
+        }
+
+        // JavaScript functions
+        // ------------------------------------------------------------------------------
+        function currentDate() {
+            var today = new Date();
+            var dd = String(today.getDate()).padStart(2, '0');
+            var mm = String(today.getMonth() + 1).padStart(2, '0');
+            var yyyy = today.getFullYear();
+    
+            return yyyy + '-' + mm + '-' + dd;
+        }
+    
+        function currentTime() {
+            let currentDate = new Date();
+            let time = currentDate.getHours() + ":" + currentDate.getMinutes() + ":" + currentDate.getSeconds();
+    
+            return time
         }
     </script>
 
