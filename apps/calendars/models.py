@@ -41,7 +41,7 @@ class BusinessHour(AbstractModelBase):
     name = models.CharField(max_length=100)
     start_time = models.TimeField(null=True)
     end_time = models.TimeField(null=True)
-    days_of_week = models.CharField(max_length=22, blank=True, default='1, 2, 3, 4, 5')  # Should be stored like this '[1, 2, 3, 4, 5, 6, 7]'
+    days_of_week = models.CharField(max_length=100, blank=True, default='1, 2, 3, 4, 5')  # Should be stored like this '[0, 1, 2, 3, 4, 5, 6]'
 
     # return list(map(int, self.days_of_week))  # Only works when days_of_week look like "1, 2, 3, 4"
     @property
@@ -63,7 +63,29 @@ class BusinessHour(AbstractModelBase):
     
     @property
     def workweek_verbose(self):   
+        # return [value for  i, (key, value) in enumerate(DaysOfWeek.choices) if key in self.workweek]     
         return [value for key, value in DaysOfWeek.choices if key in self.workweek]
+
+    @property
+    def duration_in_hours(self):
+        start_time = datetime.datetime.combine(datetime.date.today(), self.start_time)
+        end_time = datetime.datetime.combine(datetime.date.today(), self.end_time)
+        
+        diff = end_time - start_time
+        return diff.total_seconds() / 3600
+    
+    @property
+    def day_duration_in_hours(self):
+        duration_in_hours = self.duration_in_hours
+
+        for break_time in self.break_times:
+            duration_in_hours - break_time.duration_in_hours
+
+        return duration_in_hours
+    
+    @property
+    def break_times(self):
+        return DayBreakHour.objects.filter(businesshourbreak__business_hour=self)
 
     def __str__(self) -> str:
         return f'{self.name} days: {self.workweek.__str__()} from: {self.start_time.__str__()} to: {self.end_time.__str__()}'
@@ -73,6 +95,14 @@ class DayBreakHour(AbstractModelBase):
     name = models.CharField(max_length=100)
     start_time = models.TimeField(null=True)
     end_time = models.TimeField(null=True)
+
+    @property
+    def duration_in_hours(self):
+        start_time = datetime.datetime.combine(datetime.date.today(), self.start_time)
+        end_time = datetime.datetime.combine(datetime.date.today(), self.end_time)
+        
+        diff = end_time - start_time
+        return diff.total_seconds() / 3600
 
     def __str__(self) -> str:
         return f"{self.name}"
@@ -132,6 +162,11 @@ class StaffSpecialWorkPeriod(AbstractModelBase):
 
 
 class Event(AbstractModelBase):
+
+    class EventType(models.TextChoices):
+        EVENT = 'EVENT', 'EVENT'
+        HOLIDAY = 'HOLIDAY', 'HOLIDAY'
+
     name = models.CharField(max_length=100)
     start_date = models.DateField()
     end_date = models.DateField(null=True, blank=True)
@@ -139,7 +174,8 @@ class Event(AbstractModelBase):
     end_time = models.TimeField(null=True, blank=True)
     location = models.CharField(max_length=300, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
-    color = models.CharField(max_length=10, null=True, blank=True, default='ff0000')
+    color = models.CharField(max_length=10, null=True, blank=True)
+    type = models.CharField(max_length=10, choices=EventType.choices, default=EventType.EVENT, blank=True)
     # Repeat an event
     is_repeated = models.BooleanField(default=False)
     # Recurrence : 
@@ -157,16 +193,27 @@ class Event(AbstractModelBase):
     repeat_parent = models.CharField(max_length=100, null=True, blank=True)
 
     @property
+    def color_value(self):
+        if self.color:
+            return self.color
+
+        return '#ff0000' if self.type == self.EventType.HOLIDAY else '#0066ff'
+    
+    @property
+    def is_working_holiday(self):
+        return (self.type == self.EventType.HOLIDAY and self.paid_leave)
+
+    @property
     def actual_end_date(self):
         return self.end_date or self.start_date
 
     @property
     def actual_start_time(self):
-        return self.start_time or datetime.time(0, 0, 0)
+        return self.start_time or datetime.time.min
     
     @property
     def actual_end_time(self):
-        return self.end_time or datetime.time(23, 59, 59)
+        return self.end_time or datetime.time.max
 
     # If the event take all the day or partially
     @property
@@ -174,9 +221,9 @@ class Event(AbstractModelBase):
         return (
             self.start_date == self.actual_end_date
         ) and (
-            self.actual_start_time == datetime.time(0, 0, 0) or not self.start_time
+            self.actual_start_time == datetime.time.min or not self.start_time
         ) and (
-            self.actual_end_time == datetime.time(23, 59, 59) or not self.end_time
+            self.actual_end_time == datetime.time.max or not self.end_time
         )
     
     # Return the start date and the end date of a event depending if it's variable or not
@@ -211,8 +258,9 @@ class Event(AbstractModelBase):
                 print('REPEAT BY YEAR')
 
                 return repeat_it_by_year(self)
-                
-        return 'NEVER REPEAT IT.'
+        
+        print('NEVER REPEAT IT.')
+        return 'Never repeated!'
     
     def __str__(self) -> str:
-        return f'{self.name} from {self.datetimes[0].date()} to {self.datetimes[1].date()}.'
+        return f'{self.name} : [ {self.datetimes[0].date()} - {self.datetimes[1].date()} ]'

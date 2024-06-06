@@ -210,7 +210,7 @@
             <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Nouveau" onclick="loadStaffBusinessHourForm()">+</a>
             {% else %}
             <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Éditer" onclick="loadStaffBusinessHourForm({{ global_business_hour.id }})"><i class="bi bi-pencil"></i></button>
-            {% comment %} <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" onclick="loadDeleteForm('{% url 'globals:staff-business-hour-delete' global_business_hour.id %}')"><i class="bi bi-trash2"></i></button> {% endcomment %}
+            {% comment %} <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" onclick="loadDeleteForm('{% url 'staff-business-hour-delete' global_business_hour.id %}')"><i class="bi bi-trash2"></i></button> {% endcomment %}
             {% endif %}
         </div>
     </div>
@@ -255,7 +255,7 @@
                                         <button type="button" class="btn btn-link text-warning" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Éditer" onclick="loadBusinessHourBreakForm({{ break_hour.id }}, {{ business_hour.id }}, undefined, undefined)">
                                             <i class="bi bi-pencil"></i>
                                         </button>
-                                        <button type="button" class="btn btn-link text-danger" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" onclick="loadDeleteForm('{% url 'globals:business-hour-break-delete' break_hour.id %}')">
+                                        <button type="button" class="btn btn-link text-danger" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" onclick="loadDeleteForm('{% url 'business-hour-break-delete' break_hour.id %}')">
                                             <i class="bi bi-trash2"></i>
                                         </button>
                                         <ul>
@@ -331,7 +331,7 @@
                                         <button type="button" class="btn btn-link text-warning" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Éditer" onclick="loadBusinessHourBreakForm({{ break_hour.id }}, {{ business_hour.id }}, undefined, undefined)">
                                             <i class="bi bi-pencil"></i>
                                         </button>
-                                        <button type="button" class="btn btn-link text-danger" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" onclick="loadDeleteForm('{% url 'globals:business-hour-break-delete' break_hour.id %}')">
+                                        <button type="button" class="btn btn-link text-danger" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" onclick="loadDeleteForm('{% url 'business-hour-break-delete' break_hour.id %}')">
                                             <i class="bi bi-trash2"></i>
                                         </button>
                                         <ul>
@@ -353,7 +353,7 @@
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Éditer" onclick="loadBusinessHourForm({{ business_hour.id }}, undefined, undefined)">
                                     <i class="bi bi-pencil"></i>
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" onclick="loadDeleteForm('{% url 'globals:business-hour-delete' business_hour.id %}')">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" onclick="loadDeleteForm('{% url 'business-hour-delete' business_hour.id %}')">
                                     <i class="bi bi-trash2"></i>
                                 </button>
                             </div>
@@ -417,7 +417,7 @@
 
     {% comment %} function loadEventForm(objectId=null, startDate=currentDate(), endDate=null, startTime=currentTime(), endTime=null) {
 
-        let url = "{% url 'globals:event-load-form' %}"
+        let url = "{% url 'event-load-form' %}"
 
         $.ajax({
             url: url,
@@ -446,7 +446,7 @@
 
     function loadBusinessHourForm(objectId=null, startTime='08:30', endTime='17:30') {
 
-        let url = "{% url 'globals:business-hour-load-form' %}"
+        let url = "{% url 'business-hour-load-form' %}"
 
         console.log('1 * URL', url);
         console.log('1 * objectId', objectId);
@@ -477,7 +477,7 @@
 
     function loadBusinessHourBreakForm(objectId=null, businessHourId=null, startTime='13:00', endTime='14:00') {
 
-        let url = "{% url 'globals:business-hour-break-load-form' %}"
+        let url = "{% url 'business-hour-break-load-form' %}"
 
         console.log('1 * URL', url);
         console.log('1 * objectId', objectId);
@@ -510,7 +510,7 @@
 
     function loadStaffBusinessHourForm(objectId=null) {
 
-        let url = "{% url 'globals:staff-business-hour-load-form' %}"
+        let url = "{% url 'staff-business-hour-load-form' %}"
 
         console.log('1 * URL', url);
         console.log('1 * objectId', objectId);
@@ -539,7 +539,7 @@
 
         console.log("NOW {% now "Y-m-d H:i" %}, {% now "DATE_FORMAT" %}");
 
-        let url = "{% url 'globals:special-work-period-load-form' %}"
+        let url = "{% url 'special-work-period-load-form' %}"
 
         console.log('1 * URL', url);
         console.log('1 * objectId', objectId);
@@ -570,7 +570,7 @@
 
     function loadStaffSpecialWorkPeriodForm(objectId=null) {
 
-        let url = "{% url 'globals:staff-special-work-period-load-form' %}"
+        let url = "{% url 'staff-special-work-period-load-form' %}"
 
         console.log('1 * URL', url);
         console.log('1 * objectId', objectId);

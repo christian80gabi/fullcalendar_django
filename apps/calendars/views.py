@@ -79,7 +79,7 @@ def load_event_form(request):  # AJAX CALL
 
     return render(
         request,
-        "calendar/event_form.html",
+        "event_form.html",
         {
             "form": form,
             "object": obj,
@@ -90,7 +90,7 @@ def load_event_form(request):  # AJAX CALL
 # Calendar | Event Save View
 # ---------------------------------------------------------------------------------------------------------------------
 class EventSaveView(View):
-    template_name = 'calendar/calendar.html'
+    template_name = 'calendars/calendar.html'
     context = {}
 
     def post(self, request, *args, **kwargs):
@@ -139,7 +139,7 @@ class EventSaveView(View):
             print(message)
             messages.info(request, message)
         
-        return redirect('globals:calendar')
+        return redirect('calendar')
 
 
     def update_event_series(self, parent_event, form):
@@ -173,7 +173,7 @@ class EventSaveView(View):
 # Recruitment | Event Delete View
 # ---------------------------------------------------------------------------------------------------------------------
 class EventDeleteView(View):
-    template_name = 'calendar/calendar.html'
+    template_name = 'calendar.html'
     context = {}
 
     def post(self, request, *args, **kwargs):
@@ -201,7 +201,7 @@ class EventDeleteView(View):
                     Event.objects.filter(repeat_parent=parent_event.reference).delete()
                     parent_event.delete()
 
-        return redirect('globals:calendar')
+        return redirect('calendar')
 
 
 '''------------------------------------------- BUSINESS HOUR VIEWS --------------------------------------------------------'''
@@ -235,7 +235,7 @@ def load_business_hour_form(request):  # AJAX CALL
 
     return render(
         request,
-        "calendar/business_hour_form.html",
+        "business_hour_form.html",
         {
             "form": form,
             "object": obj,
@@ -246,7 +246,7 @@ def load_business_hour_form(request):  # AJAX CALL
 # Calendar | Business Hour Save View
 # ---------------------------------------------------------------------------------------------------------------------
 class BusinessHourSaveView(View):
-    template_name = 'calendar/calendar.html'
+    template_name = 'calendar.html'
     context = {}
 
     def post(self, request, *args, **kwargs):
@@ -261,13 +261,13 @@ class BusinessHourSaveView(View):
             obj.save()
             messages.info(request, 'Enregistrement reussi!')
 
-        return redirect('globals:calendar')
+        return redirect('calendar')
 
 
 # Calendar | Business Hour Delete View
 # ---------------------------------------------------------------------------------------------------------------------
 class BusinessHourDeleteView(View):
-    template_name = 'calendar/calendar.html'
+    template_name = 'calendar.html'
     context = {}
 
     def post(self, request, *args, **kwargs):
@@ -275,7 +275,7 @@ class BusinessHourDeleteView(View):
         if obj is not None:
             obj.delete()
 
-        return redirect('globals:calendar')
+        return redirect('calendar')
     
 
 '''------------------------------------------- BUSINESS HOUR BREAK VIEWS --------------------------------------------------------'''
@@ -311,7 +311,7 @@ def load_business_hour_break_form(request):  # AJAX CALL
 
     return render(
         request,
-        "calendar/business_hour_break_form.html",
+        "business_hour_break_form.html",
         {
             "form": form,
             "object": obj,
@@ -323,7 +323,7 @@ def load_business_hour_break_form(request):  # AJAX CALL
 # Calendar | Business Hour Save View
 # ---------------------------------------------------------------------------------------------------------------------
 class BusinessHourBreakSaveView(View):
-    template_name = 'calendar/calendar.html'
+    template_name = 'calendar.html'
     context = {}
 
     def post(self, request, business_hour_id, *args, **kwargs):
@@ -346,13 +346,13 @@ class BusinessHourBreakSaveView(View):
 
             messages.info(request, 'Enregistrement reussi!')
 
-        return redirect('globals:calendar')
+        return redirect('calendar')
 
 
 # Calendar | Business Hour Delete View
 # ---------------------------------------------------------------------------------------------------------------------
 class BusinessHourBreakDeleteView(View):
-    template_name = 'calendar/calendar.html'
+    template_name = 'calendar.html'
     context = {}
 
     def post(self, request, *args, **kwargs):
@@ -360,7 +360,7 @@ class BusinessHourBreakDeleteView(View):
         if obj is not None:
             obj.delete()
 
-        return redirect('globals:calendar')
+        return redirect('calendar')
 
 
 '''------------------------------------------- STAFF BUSINESS HOUR VIEWS --------------------------------------------------------'''
@@ -387,7 +387,7 @@ def load_staff_business_hour_form(request):  # AJAX CALL
 
     return render(
         request,
-        "calendar/staff_business_hour_form.html",
+        "staff_business_hour_form.html",
         {
             "form": form,
             "object": obj,
@@ -398,7 +398,7 @@ def load_staff_business_hour_form(request):  # AJAX CALL
 # Calendar | Staff Business Hour Save View
 # ---------------------------------------------------------------------------------------------------------------------
 class StaffBusinessHourSaveView(View):
-    template_name = 'calendar/calendar.html'
+    template_name = 'calendar.html'
     context = {}
 
     def post(self, request, *args, **kwargs):
@@ -411,13 +411,13 @@ class StaffBusinessHourSaveView(View):
             form.save()
             messages.info(request, 'Enregistrement reussi!')
 
-        return redirect('globals:calendar')
+        return redirect('calendar')
 
 
 # Calendar | Staff Business Hour Delete View
 # ---------------------------------------------------------------------------------------------------------------------
 class StaffBusinessHourDeleteView(View):
-    template_name = 'calendar/calendar.html'
+    template_name = 'calendar.html'
     context = {}
 
     def post(self, request, *args, **kwargs):
@@ -425,7 +425,7 @@ class StaffBusinessHourDeleteView(View):
         if obj is not None:
             obj.delete()
         
-        return redirect('globals:calendar')
+        return redirect('calendar')
 
 
 '''------------------------------------------- SPECIAL WORK PERIOD VIEWS --------------------------------------------------------'''
@@ -459,7 +459,7 @@ def load_special_work_period_form(request):  # AJAX CALL
 
     return render(
         request,
-        "calendar/special_work_period.html",
+        "special_work_period.html",
         {
             "form": form,
             "object": obj,
@@ -470,7 +470,7 @@ def load_special_work_period_form(request):  # AJAX CALL
 # Calendar | Special Work Period Save View
 # ---------------------------------------------------------------------------------------------------------------------
 class SpecialWorkPeriodSaveView(View):
-    template_name = 'calendar/calendar.html'
+    template_name = 'calendar.html'
     context = {}
 
     def post(self, request, *args, **kwargs):
@@ -482,13 +482,13 @@ class SpecialWorkPeriodSaveView(View):
         if form.is_valid():
             form.save()
 
-        return redirect('globals:calendar')
+        return redirect('calendar')
 
 
 # Calendar | Special Work Period Delete View
 # ---------------------------------------------------------------------------------------------------------------------
 class SpecialWorkPeriodDeleteView(View):
-    template_name = 'calendar/calendar.html'
+    template_name = 'calendar.html'
     context = {}
 
     def post(self, request, *args, **kwargs):
@@ -496,7 +496,7 @@ class SpecialWorkPeriodDeleteView(View):
         if obj is not None:
             obj.delete()
         
-        return redirect('globals:calendar')
+        return redirect('calendar')
 
 
 
@@ -524,7 +524,7 @@ def load_staff_special_work_period_form(request):  # AJAX CALL
 
     return render(
         request,
-        "calendar/staff_special_work_period.html",
+        "staff_special_work_period.html",
         {
             "form": form,
             "object": obj,
@@ -535,7 +535,7 @@ def load_staff_special_work_period_form(request):  # AJAX CALL
 # Calendar | Staff Special Work Period Save View
 # ---------------------------------------------------------------------------------------------------------------------
 class StaffSpecialWorkPeriodSaveView(View):
-    template_name = 'calendar/calendar.html'
+    template_name = 'calendar.html'
     context = {}
 
     def post(self, request, *args, **kwargs):
@@ -547,13 +547,13 @@ class StaffSpecialWorkPeriodSaveView(View):
         if form.is_valid():
             form.save()
 
-        return redirect('globals:calendar')
+        return redirect('calendar')
 
 
 # Calendar | Staff Special Work Period Delete View
 # ---------------------------------------------------------------------------------------------------------------------
 class StaffSpecialWorkPeriodDeleteView(View):
-    template_name = 'calendar/calendar.html'
+    template_name = 'calendar.html'
     context = {}
 
     def post(self, request, *args, **kwargs):
@@ -561,5 +561,5 @@ class StaffSpecialWorkPeriodDeleteView(View):
         if obj is not None:
             obj.delete()
         
-        return redirect('globals:calendar')
+        return redirect('calendar')
 
