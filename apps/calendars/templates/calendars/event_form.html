@@ -6,18 +6,177 @@
 		</div>
 		<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 	</div>
-	{% if object %}
-	<form action="{% url 'calendars:event-update' object.id %}" method="post">
-	{% else %}
-	<form action="{% url 'calendars:event-create' %}" method="post">
-	{% endif %}
-	{% csrf_token %}
-		<div class="modal-body py-0">
-		{{ form.as_p }}
-		</div>
-		<div class="modal-footer flex-column border-top-0">
-			<button type="submit" class="btn btn-lg btn-primary w-100 mx-0 mb-2">Enregistrer</button>
-			<button type="button" class="btn btn-lg btn-light w-100 mx-0" data-bs-dismiss="modal">Fermer</button>
-		</div>
-	</form>
+	<div class="modal-body py-0">
+		{% if object %}
+		<form action="{% url 'calendars:event-update' object.id %}" method="post" class="row g-3">
+		{% else %}
+		<form action="{% url 'calendars:event-create' %}" method="post" class="row g-3">
+		{% endif %}
+		{% csrf_token %}
+			{{ form.non_field_errors }}
+			<div class="col-12">
+				<label for="id_name" class="form-label">Titre</label>
+				{{ form.name }}
+				<div id="nameHelpBlock" class="form-text">
+					Le titre devrait contenir ni le caractère <strong class="text-danger">'</strong> ni <strong class="text-danger">"</strong>.
+				</div>
+				{{ form.name.errors }}
+			</div>
+			<div class="col-md-6">
+				<label for="id_start_date" class="form-label">Date de début</label>
+				{{ form.start_date }}
+				{{ form.start_date.errors }}
+			</div>
+			<div class="col-md-6">
+				<label for="id_end_time" class="form-label">Heure de début</label>
+				{{ form.start_time }}
+				{{ form.start_time.errors }}
+			</div>
+			<div class="col-md-6">
+				<label for="id_end_date" class="form-label">Date de fin</label>
+				{{ form.end_date }}
+				{{ form.end_date.errors }}
+			</div>
+			<div class="col-md-6">
+				<label for="id_end_time" class="form-label">Heure de fin</label>
+				{{ form.end_time }}
+				{{ form.end_time.errors }}
+			</div>
+			<div class="col-12">
+				<label for="id_location" class="form-label">Lieu</label>
+				{{ form.location }}
+				{{ form.location.errors }}
+			</div>
+			<div class="col-12">
+				<label for="id_description" class="form-label">Description</label>
+				{{ form.description }}
+				{{ form.description.errors }}
+			</div>
+			<div class="col-12">
+				<label for="id_color" class="form-label">Couleur</label>
+				{{ form.color }}
+				{{ form.color.errors }}
+			</div>
+			<div class="col-12">
+				<div class="form-check">
+					<label class="form-check-label" for="id_type">
+						Type
+					</label>
+					{{ form.type }}
+					{{ form.type.errors }}
+					
+				</div>
+			</div>
+			<div class="col-12" id="paid_leave_zone">
+				<label class="form-check-label" for="id_paid_leave">
+					Chômé payé ?
+				</label>
+				{{ form.paid_leave }}
+				{{ form.paid_leave.errors }}
+			</div>
+			<div class="col-12">
+				<label class="form-check-label" for="id_is_repeated">
+					Répéter l'événement ?
+				</label>
+				{{ form.is_repeated }}
+				{{ form.is_repeated.errors }}
+			</div>
+			<div class="row g-3" id="repeat_zone">
+				<div class="col-12">
+					<span>Cet évent sera répété chaque...</span>
+				</div>
+				<div class="col-md-6">
+					<label for="id_end_date" class="visually-hidden">Nombre de pas</label>
+					{{ form.recurrence }}
+					{{ form.recurrence.errors }}
+				</div>
+				<div class="col-md-6">
+					<label for="id_repeat_by" class="visually-hidden">Période</label>
+					{{ form.repeat_by }}
+					{{ form.repeat_by.errors }}
+				</div>
+				<div class="col-md-6">
+					<label class="form-label" for="repeat_end">Durée de répétition</label>
+					<select class="form-select" id="repeat_end">
+						<option value="DATE" selected>Date précise</option>
+						<option value="NUMBER">Nombre précis</option>
+					</select>
+				</div>
+				<div class="col-md-6" id="repeat_end_date_zone">
+					<label for="id_repeat_end_date" class="form-label">Date de fin de répétition</label>
+					{{ form.repeat_end_date }}
+					{{ form.repeat_end_date.errors }}
+				</div>
+				<div class="col-md-6" id="occurrence_zone">
+					<label for="id_occurrence" class="form-label">Nombre de répétition</label>
+					{{ form.occurrence }}
+					{{ form.occurrence.errors }}
+				</div>
+			</div>
+
+			{% if object and object.is_repeated or object.repeat_parent %}
+			{% comment %} <div class="form-check form-switch">
+				<input class="form-check-input" type="checkbox" role="switch" id="allTheSeries" name="allTheSeries">
+				<label class="form-check-label" for="allTheSeries">Mettre à jour toute la série ?</label>
+			</div> {% endcomment %}
+			<p>
+				Le bouton <code>enregistrer</code> ne mettra a jour que l'événement actuel.<br>
+				Pas contre le bouton <code>Toute la série</code> mettra à jour toute la série d'événement.
+			</p>
+			{% endif %}
+			
+			<div class="modal-footer flex-column border-top-0">
+				<button type="submit" class="btn btn-lg btn-primary w-100 mx-0 mb-2" name="currentOne">Enregistrer</button>
+				{% if object %}
+					{% if object.is_repeated or object.repeat_parent %}
+					<button type="submit" class="btn btn-lg btn-dark w-100 mx-0 mb-2" name="allTheSeries">Toute la série</button>
+					{% endif %}
+				{% endif %}
+				<button type="button" class="btn btn-lg btn-light w-100 mx-0" data-bs-dismiss="modal">Fermer</button>
+			</div>
+		</form>
+	</div>
 </div>
+
+<script>
+	$('#baseFormModal').on('shown.bs.modal', function (e) {
+		if ($('input[name="type"]:checked').val() === 'EVENT') {
+			$("#paid_leave_zone").addClass("visually-hidden")
+		}
+		if ($('#id_is_repeated').is(":checked") == false) {
+			$("#repeat_zone").addClass("visually-hidden")
+		}
+		if ($('#repeat_end').val() === 'DATE') {
+			$("#repeat_end_date_zone").removeClass('visually-hidden')
+			$("#occurrence_zone").addClass("visually-hidden")
+		}
+	})
+
+	$("#id_type").change(function () {
+		if ($('input[name="type"]:checked').val() === 'HOLIDAY') {
+			$("#paid_leave_zone").removeClass('visually-hidden')
+        } else {
+			$("#paid_leave_zone").addClass("visually-hidden")
+		}
+	})
+
+	$("#id_is_repeated").change(function () {
+		if ($('#id_is_repeated').is(":checked")) {
+			$("#repeat_zone").removeClass('visually-hidden')
+        } else {
+			$("#repeat_zone").addClass("visually-hidden")
+		}
+	})
+
+	$("#repeat_end").change(function () {
+		if ($(this).val() === 'DATE') {
+			$("#repeat_end_date_zone").removeClass('visually-hidden')
+			$("#occurrence_zone").addClass("visually-hidden")
+			$("#id_occurrence").val("");
+		} else {
+			$("#occurrence_zone").removeClass('visually-hidden')
+			$("#repeat_end_date_zone").addClass("visually-hidden")
+			$("#id_repeat_end_date").val("");
+		}
+	})
+</script>

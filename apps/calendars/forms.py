@@ -82,19 +82,19 @@ class StaffBusinessHourModelForm(forms.ModelForm):
     class Meta:
         model = StaffBusinessHour
         fields = [
-            'staff_scope',
-            'staff_id',
+            'name',
             'business_hour',
+            'is_main',
         ]
         widgets = {
-            'staff_scope': forms.Select(attrs={
-                'class': 'form-select'
-            }),
-            'staff_id': forms.Select(attrs={
-                'class': 'form-select'
+            'name': forms.TextInput(attrs={
+                'class': 'form-control'
             }),
             'business_hour': forms.SelectMultiple(attrs={
                 'class': 'form-select',
+            }),
+            'is_main': forms.Select(attrs={
+                'class': 'form-select'
             })
         }
 
@@ -118,7 +118,6 @@ class EventModelForm(forms.ModelForm):
             'description',
             'color',
             'type',
-            'paid_leave',
             'is_repeated',
             'recurrence',
             'repeat_by',
@@ -156,9 +155,6 @@ class EventModelForm(forms.ModelForm):
                 'type': 'color',
             }),
             'type': forms.RadioSelect(),
-            'paid_leave': forms.CheckboxInput(attrs={
-                'class': 'form-check form-check-input'
-            }),
             'is_repeated': forms.CheckboxInput(attrs={
                 'class': 'form-check form-check-input'
             }),
