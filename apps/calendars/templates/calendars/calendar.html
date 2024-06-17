@@ -1,0 +1,968 @@
+{% extends 'base.html' %}
+{% load tz %}
+{% load static %}
+{% load template_tags %}
+
+{% now "DATE_FORMAT" as today %}
+
+{% block header %}
+<title>Calendar</title>
+
+<script>    
+    document.addEventListener('DOMContentLoaded', function() {
+        var initialLocaleCode = 'fr';
+        var localeSelectorEl = document.getElementById('locale-selector');
+
+        var doubleClick = 0;
+        var clickTimer = 0;
+
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            themeSystem: 'bootstrap5',
+            headerToolbar: {
+                left: 'addEventButton dayGridMonth,timeGridWeek,timeGridDay,listMonth',
+                center: 'title',
+                right: 'today prev,next'
+            },
+            locale: initialLocaleCode, // the initial locale // the initial locale. if not specified, uses the first one
+            buttonIcons: true, // show the prev/next text
+            weekNumbers: true,
+            navLinks: true, // can click day/week names to navigate views
+            editable: true,
+            dayMaxEvents: true, // allow "more" link when too many events
+
+            dayMaxEventRows: true,
+            nowIndicator: true,
+            selectable: true,
+            unselectAuto: true,
+            selectOverlap: true,
+            // firstDay:1, // Sunday=0, Monday=1, Tuesday=2, etc.
+            businessHours: [
+                {% if global_business_hour %}
+                    {% for business_hour in global_business_hour.current_business_hours %}
+                        {
+                            daysOfWeek: '{{ business_hour.workweek }}',
+                            startTime: '{{ business_hour.start_time|date:"H:i" }}',
+                            endTime: '{{ business_hour.end_time|date:"H:i" }}'   
+                        },
+                    {% endfor %}
+                {% endif %}
+            ],
+            customButtons: {
+				addEventButton: {
+					text: '+',
+					click: function() {
+                        loadEventForm();
+					}
+				}
+			},
+            events: [
+                {% for event in events %} 
+                    {
+                        objectId: "{{ event.reference }}",
+                        title: "{{ event.name|safe }}",
+                        start: "{{ event.datetimes.0|date:'Y-m-d' }}T{{ event.datetimes.0|date:'H:i:s' }}",
+                        end: "{{ event.datetimes.1|date:'Y-m-d' }}T{{ event.datetimes.1|date:'H:i:s' }}",
+                        allDay: {% if event.allDay %} true {% else %} false {% endif %},
+                        backgroundColor: "{{ event.color_value }}",
+                        extendedProps: {
+                            eventType:'{{ event.type }}'
+                        },
+                    },
+                {% endfor %}
+            ],
+            eventClick: function(info) {
+                info.jsEvent.preventDefault(); // don't let the browser navigate
+
+                if (info.event.url) {
+                    // window.open(info.event.url);
+                }
+                info.el.style.borderColor = 'black'; // when clicked turn the border black
+                console.log('Event Props', info.event.extendedProps);
+                console.log('EventType', info.event.extendedProps.eventType);
+
+                if (info.event.extendedProps.objectId) {
+                    loadEventForm(objectId=info.event.extendedProps.objectId, undefined, undefined, undefined, undefined)
+                }
+            },
+            select: function(info) {
+                console.log('* SELECT *', info);
+                
+                let startDay = String(info.start.getDate()).padStart(2, '0');
+                let startMonth = String(info.start.getMonth() + 1).padStart(2, '0');
+                let startHours = String(info.start.getHours()).padStart(2, '0');
+                let startMinutes = String(info.start.getMinutes()).padStart(2, '0');
+
+                let endDay = String(info.end.getDate()).padStart(2, '0');
+                let endMonth = String(info.end.getMonth() + 1).padStart(2, '0');
+                let endHours = String(info.end.getHours()).padStart(2, '0');
+                let endMinutes = String(info.end.getMinutes()).padStart(2, '0');
+                
+                startDate = info.start.getFullYear() + '-' + startMonth + '-' + startDay
+                endDate = info.end.getFullYear() + '-' + endMonth + '-' + endDay
+                startTime = startHours + ':' + startMinutes
+                endTime = endHours + ':' + endMinutes
+                
+                _start = new Date(info.startStr);
+                _start.setDate(_start.getDate() + 1);
+                _end = new Date(info.endStr);
+
+                if (info.allDay) {
+                    if(_start.getDate() !== _end.getDate()){
+                        console.log('Select and hold! allDay true');
+    
+                        loadEventForm(undefined, info.startStr, info.endStr, null, null)
+                    }
+                } else {
+                    console.log('Select and allDay false');
+
+                    loadEventForm(undefined, startDate, endDate, startTime, endTime)
+                }
+            },
+            dateClick: function(info) {
+                var singleClick = info.date.toUTCString();
+
+                if(doubleClick==singleClick) {
+                    console.log('Double-click!');
+
+                    console.log('EVENT', info);
+
+                    console.log('Date - ', info.date.toUTCString())
+                    console.log('Only the Date - ', info.dateStr)
+                    console.log('AllDay - ', info.allDay)
+
+                    loadEventForm(undefined, info.dateStr, undefined, undefined, undefined)
+                    
+                    doubleClick = null;
+                } else {
+                    doubleClick=info.date.toUTCString();
+                    clearInterval(clickTimer);
+                    clickTimer = setInterval(function() {
+                        doubleClick = null;
+                        clearInterval(clickTimer);
+                    }, 500);
+                }
+            },
+        });
+        calendar.render();
+
+        // build the locale selector's options
+        calendar.getAvailableLocaleCodes().forEach(function(localeCode) {
+            var optionEl = document.createElement('option');
+            optionEl.value = localeCode;
+            optionEl.selected = localeCode == initialLocaleCode;
+            optionEl.innerText = localeCode;
+            localeSelectorEl.appendChild(optionEl);
+        });
+        // when the selected option changes, dynamically change the calendar option
+        localeSelectorEl.addEventListener('change', function() {
+            if (this.value) {
+            calendar.setOption('locale', this.value);
+            }
+        });
+
+        document.querySelector('style').textContent += "@media screen and (max-width:767px) { .fc-toolbar.fc-header-toolbar {flex-direction:column;} .fc-toolbar-chunk { display: table-row; text-align:center; padding:5px 0; } }";
+    });
+</script>
+
+{% endblock header %}
+
+{% block secondary-navigation %}
+    <div class="nav-scroller shadow-sm">
+        <nav class="nav nav-underline" aria-label="Secondary navigation">
+            <a class="nav-link active" aria-current="page" href="#">Calendrier</a>
+            <a class="nav-link active" aria-current="page" href="#">
+                <span class="badge bg-light text-dark rounded-pill align-text-bottom">Agenda</span>
+            </a>
+        </nav>
+    </div>
+{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Calendrier</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <div class="btn-group me-2">
+                <a href="#business-hour-section" class="btn btn-sm btn-outline-secondary">Heures de travail</a>
+                <a href="#special-work-hour-section" class="btn btn-sm btn-outline-secondary">Special</a>
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    Listes
+                </button>
+                <ul class="dropdown-menu">
+                    <li>
+                        <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#staffBusinesshourListModal">
+                            Personnel - Heures de travail
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#staffSpecialPeriodListModal">
+                            Personnel - Périodes Spéciales
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>    
+
+    <section id="calendar-section" class="my-4">
+        <div class="d-flex justify-content-between">
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#eventListModal">
+                Événements <i class="bi bi-chevron-expand"></i>
+            </button>
+            <div id='top' class="form-floating">
+                <select class="form-select" id='locale-selector'>
+                </select>
+                <label for="locale-selector">Langue</label>
+            </div>
+        </div>
+        <div class="m-3">
+            <div id='calendar'></div>
+        <div>
+    </section>
+
+    <section id="business-hour-section">
+        <div class="pt-3 pb-2 mb-2 border-bottom">
+            <h2><span class="text-primary section-anchor">#</span> Heures de travail</h2>
+        </div>
+
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2">
+            <div></div>
+            {% comment %} <h4>Global <span class="text-muted">{% now "Y" %}</span></h4> {% endcomment %}
+            <div class="btn-group me-2">
+                {% if not global_business_hour %}
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Nouveau" onclick="loadStaffBusinessHourForm()">+</a>
+                {% else %}
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Éditer" onclick="loadStaffBusinessHourForm({{ global_business_hour.id }})"><i class="bi bi-pencil"></i></button>
+                {% endif %}
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table id="globalBusinessHours" class="table table-sm caption-top">
+                <caption>Heure de travail <b>globale</b> de {% now "Y" %}</caption>
+                <thead class="table-primary">
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Label</th>
+                        <th scope="col">Heure de début</th>
+                        <th scope="col">Heure de fin</th>
+                        <th scope="col">Jour-s de la semaine</th>
+                        <th scope="col">Pause-s</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for business_hour in global_business_hour.business_hours %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ business_hour.name }}</td>
+                        <td>{{ business_hour.start_time }}</td>
+                        <td>{{ business_hour.end_time }}</td>
+                        <td>
+                            {% for day in business_hour.workweek_verbose %}
+                                <span class="badge text-bg-light me-1">{{ day }}</span>
+                            {% endfor %}
+                        </td>
+                        <td class="">
+                            <button type="button" class="btn btn-sm btn-outline-success me-1" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Nouveau" onclick="loadBusinessHourBreakForm(undefined, {{ business_hour.id }}, undefined, undefined)">
+                                +
+                            </button>
+                            {% if business_hour.break_times %}
+                            <a class="btn btn-sm btn-light collapsed" data-bs-toggle="collapse" href="#collapseGlobal{{ business_hour.reference }}" role="button" aria-expanded="false" aria-controls="collapseADMIN">
+                                Heure-s de pause <i class="bi bi-caret-down-fill"></i>
+                            </a>
+                            
+                            <div class="mt-3 collapse" id="collapseGlobal{{ business_hour.reference }}" style="">
+                                <div class="card card-body">
+                                    {% for break_hour in business_hour.break_times %}
+                                    <ul class="list-unstyled">
+                                        <li>{{ break_hour.name }}
+                                            <button type="button" class="btn btn-link text-warning" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Éditer" onclick="loadBusinessHourBreakForm({{ break_hour.id }}, {{ business_hour.id }}, undefined, undefined)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-link text-danger" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" onclick="loadDeleteForm('{% url 'calendars:business-hour-break-delete' break_hour.id %}')">
+                                                <i class="bi bi-trash2"></i>
+                                            </button>
+                                            <ul>
+                                                <li>
+                                                    De <span class="badge text-bg-light me-1">{{ break_hour.start_time }}</span>
+                                                    à <span class="badge text-bg-light me-1">{{ break_hour.end_time }}</span>
+                                                </li>
+                                            </ul>
+                                        </li>
+                                    </ul>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-danger h4">
+                            <i class="bi bi-info-circle-fill"></i> Pas de période de travail globale
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-center">
+            <hr class="border border-primary border-2 opacity-50 w-25">
+        </div>
+
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center py-1 me-2">
+            <h4></h4>
+            <div class="btn-toolbar mb-md-0">
+                <button type="button" class="btn btn-sm btn-success" onclick="loadBusinessHourForm()">+</a>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table id="businessHours" class="table table-striped table-sm caption-top">
+                <caption>Liste des heures de travail</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Label</th>
+                        <th scope="col">Heure de début</th>
+                        <th scope="col">Heure de fin</th>
+                        <th scope="col">Jour-s de la semaine</th>
+                        <th scope="col">Pause-s</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for business_hour in business_hours %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ business_hour.name }}</td>
+                        <td>{{ business_hour.start_time }}</td>
+                        <td>{{ business_hour.end_time }}</td>
+                        <td>
+                            {% for business_hour in business_hour.workweek_verbose %}
+                                <span class="badge text-bg-light me-1">{{ business_hour }}</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-success me-1" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Nouveau" onclick="loadBusinessHourBreakForm(undefined, {{ business_hour.id }}, undefined, undefined)">+</button>
+                            {% if business_hour.break_times %}
+                                <a class="btn btn-sm btn-light collapsed" data-bs-toggle="collapse" href="#collapse{{ business_hour.reference }}" role="button" aria-expanded="false" aria-controls="collapseADMIN">
+                                    Heure-s de pause <i class="bi bi-caret-down-fill"></i>
+                                </a>
+                                
+                                <div class="mt-3 collapse" id="collapse{{ business_hour.reference }}" style="">
+                                    <div class="card card-body">
+                                        {% for break_hour in business_hour.break_times %}
+                                        <ul class="list-unstyled">
+                                            <li>{{ break_hour.name }} 
+                                                <button type="button" class="btn btn-link text-warning" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Éditer" onclick="loadBusinessHourBreakForm({{ break_hour.id }}, {{ business_hour.id }}, undefined, undefined)">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-link text-danger" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" onclick="loadDeleteForm('{% url 'calendars:business-hour-break-delete' break_hour.id %}')">
+                                                    <i class="bi bi-trash2"></i>
+                                                </button>
+                                                <ul>
+                                                    <li>
+                                                        De <span class="badge text-bg-light me-1">{{ break_hour.start_time }}</span>
+                                                        à <span class="badge text-bg-light me-1">{{ break_hour.end_time }}</span>
+                                                    </li>
+                                                </ul>
+                                            </li>
+                                        </ul>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group me-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Éditer" onclick="loadBusinessHourForm({{ business_hour.id }}, undefined, undefined)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                {% if not business_hour.is_as_global %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" onclick="loadDeleteForm('{% url 'calendars:business-hour-delete' business_hour.id %}')">
+                                    <i class="bi bi-trash2"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-secondary h4">
+                            <i class="bi bi-info-circle-fill"></i> Pas d'heure de travail enregistrée
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section id="special-work-hour-section">
+        <div class="pt-3 pb-2 mb-2 border-bottom">
+            <h2><span class="text-primary section-anchor">#</span> Périodes spéciales</h2>
+        </div>
+
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2">
+            <div></div>
+            {% comment %} <h4>Global <span class="text-muted">{% now "Y" %}</span></h4> {% endcomment %}
+            <div class="me-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Nouveau" onclick="loadStaffSpecialWorkPeriodForm()">+</a>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table id="globalSpecialPeriods" class="table table-sm caption-top">
+                <caption>Périodes Spéciales à l'heure <b>globale</b> de {% now "Y" %}</caption>
+                <thead class="table-primary">
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Label</th>
+                        <th scope="col">Date de début</th>
+                        <th scope="col">Date de fin</th>
+                        <th scope="col">Heures de travail</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for work_period in global_business_hour.current_year_staff_special_work_periods %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ work_period.special_work_period.name }}</td>
+                        <td>{{ work_period.special_work_period.start_date }}</td>
+                        <td>{{ work_period.special_work_period.end_date }}</td>
+                        <td>
+                            <dl class="row">
+                                {% for business_hour in work_period.special_work_period.business_hours %}
+                                    <dt class="col-sm-3 text-nowrap">{{ business_hour.start_time }} - {{ business_hour.end_time }} </dt>
+                                    <dd class="col-sm-9">
+                                        <span class="vr me-1"></span>
+                                        {% for day in business_hour.workweek_verbose %}
+                                            <span class="badge text-bg-light me-1">{{ day }}</span>
+                                        {% endfor %}
+                                    </dd>
+                                {% endfor %}
+                            </dl>
+                        </td>
+                        <td>
+                            <div class="btn-group me-2">
+                                {% if work_period.start_date > today %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Éditer" onclick="loadStaffSpecialWorkPeriodForm({{ work_period.id }}, undefined, undefined)"><i class="bi bi-pencil"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" onclick="loadDeleteForm('{% url 'calendars:staff-special-work-period-delete' work_period.id %}')"><i class="bi bi-trash2"></i></button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-secondary h4">
+                            <i class="bi bi-info-circle-fill"></i> Pas de période spéciale de travail globale
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-center">
+            <hr class="border border-primary border-2 opacity-50 w-25">
+        </div>
+
+        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center py-1 me-2">
+            <h4></h4>
+            <div class="btn-toolbar mb-md-0">
+                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Nouveau" onclick="loadSpecialWorkPeriodForm()">+</a>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table id="specialPeriods" class="table table-striped table-sm caption-top">
+                <caption>Liste des périodes spéciales</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Label</th>
+                        <th scope="col">Date de début</th>
+                        <th scope="col">Date de fin</th>
+                        <th scope="col">Heures de travail</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for work_period in special_work_periods %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ work_period.name }}</td>
+                        <td>{{ work_period.start_date }}</td>
+                        <td>{{ work_period.end_date }}</td>
+                        <td>
+                            <dl class="row">
+                            {% for business_hour in work_period.business_hours %}
+                                <dt class="col-sm-3 text-nowrap">{{ business_hour.start_time }} - {{ business_hour.end_time }} </dt>
+                                <dd class="col-sm-9">
+                                    <span class="vr me-1"></span>
+                                    {% for day in business_hour.workweek_verbose %}
+                                        <span class="badge text-bg-light me-1">{{ day }}</span>
+                                    {% endfor %}
+                                </dd>
+                            {% endfor %}
+                            </dl>
+                        </td>
+                        <td>
+                            <div class="btn-group me-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Éditer" onclick="loadSpecialWorkPeriodForm({{ work_period.id }}, undefined, undefined)"><i class="bi bi-pencil"></i></button>
+                                {% if work_period.start_date > today %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" onclick="loadDeleteForm('{% url 'calendars:special-work-period-delete' work_period.id %}')"><i class="bi bi-trash2"></i></button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-secondary h4">
+                            <i class="bi bi-info-circle-fill"></i> Pas de période de travail spéciale
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section id="modals">
+        <!-- Fullscreen Modal - Event [1]-->
+        <div class="modal fade" id="eventListModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="eventListModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
+                <div id="modalContent" class="modal-content shadow">
+                    <div class="modal-header border-bottom-0">
+                        <h5 class="modal-title" id="eventListModalLabel">Événements</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body py-0">
+                        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                            <h1 class="h2"></h1>
+                            <div class="btn-toolbar mb-2 mb-md-0">
+                                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Nouveau" 
+                                        onclick="$('#eventListModal').one('hidden.bs.modal', function() { loadEventForm(); }).modal('hide');">
+                                Nouveau</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table id="eventTable" class="table table-striped caption-top">
+                                <caption>Liste des événements</caption>
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th scope="col">#</th>
+                                        <th scope="col">Type</th>
+                                        <th scope="col">Titre</th>
+                                        <th scope="col">Début</th>
+                                        <th scope="col">Fin</th>
+                                        <th scope="col">Lieu</th>
+                                        <th scope="col">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="table-group-divider">
+                                    {% for event in events %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ event.get_type_display }}</td>
+                                        <td>{{ event.name }}</td>
+                                        <td>{{ event.datetimes.0 }}</td>
+                                        <td>{{ event.datetimes.1 }}</td>
+                                        <td><span class="px-2">{{ event.location }}</span></td>
+                                        <td>
+                                            <div class="btn-group me-2">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Éditer"
+                                                        onclick="$('#eventListModal').one('hidden.bs.modal', function() { loadEventForm({{ event.id }}, undefined, undefined, undefined, undefined); }).modal('hide');">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" 
+                                                        onclick="$('#eventListModal').one('hidden.bs.modal', function() { loadDeleteForm('{% url 'calendars:event-delete' event.id %}'); }).modal('hide');">
+                                                    <i class="bi bi-trash2"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="6" class="text-center text-secondary h4">
+                                            <i class="bi bi-info-circle-fill"></i> Pas d'evénement
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer flex-column border-top-0">
+                        <button type="button" class="btn btn-lg btn-light w-100 mx-0" data-bs-dismiss="modal">Fermer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--End Modal-->
+
+        <!-- Fullscreen Modal - Staff Business Hour [2]-->
+        <div class="modal fade" id="staffBusinesshourListModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staffBusinessHourListModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
+                <div id="modalContent" class="modal-content shadow">
+                    <div class="modal-header border-bottom-0">
+                        <h5 class="modal-title" id="staffBusinessHourListModalLabel">Personnel - Heures de travail</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body py-0">
+                        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                            <h1 class="h2"></h1>
+                            <div class="btn-toolbar mb-2 mb-md-0">
+                                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Nouveau" 
+                                        onclick="$('#staffBusinesshourListModal').one('hidden.bs.modal', function() { loadStaffBusinessHourForm(); }).modal('hide');">
+                                    Nouveau
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table id="staffBusinessHourTable" class="table table-striped caption-top">
+                                <caption>Liste des heures de travail du personnel</caption>
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th scope="col">#</th>
+                                        <th scope="col">Groupe du personnel</th>
+                                        <th scope="col">Personnel</th>
+                                        <th scope="col">Heures de travail</th>
+                                        <th scope="col">Nbre de périodes spéciales</th>
+                                        <th scope="col">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for object in staff_business_hours %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ object.staff_scope }}</td>
+                                        <td>{{ object.staff }}</td>
+                                        <td>
+                                            <dl class="row">
+                                            {% for business_hour in object.business_hours %}
+                                                <dt class="col-sm-3">{{ business_hour.start_time }} - {{ business_hour.end_time }} </dt>
+                                                <dd class="col-sm-9">
+                                                    <span class="vr me-1"></span>
+                                                    {% for day in business_hour.workweek_verbose %}
+                                                        <span class="badge text-bg-light me-1">{{ day }}</span>
+                                                    {% endfor %}
+                                                </dd>
+                                            {% endfor %}
+                                            </dl>
+                                        </td>
+                                        <td>{{ object.special_work_periods.count }}</td>
+                                        <td>
+                                            <div class="btn-group me-2">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Éditer" 
+                                                        onclick="$('#staffBusinesshourListModal').one('hidden.bs.modal', function() { loadStaffBusinessHourForm({{ object.id }}); }).modal('hide');">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                {% if object.staff_scope != 'GLOBAL' %}
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" 
+                                                        onclick="$('#staffBusinesshourListModal').one('hidden.bs.modal', function() { loadDeleteForm('{% url 'calendars:staff-business-hour-delete' object.id %}'); }).modal('hide');">
+                                                    <i class="bi bi-trash2"></i>
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="6" class="text-center text-secondary h4">
+                                            <i class="bi bi-info-circle-fill"></i> Pas d'heure de travail à assigné au personnel
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer flex-column border-top-0">
+                        <button type="button" class="btn btn-lg btn-light w-100 mx-0" data-bs-dismiss="modal">Fermer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--End Modal-->
+        
+        <!-- Fullscreen Modal - Staff Special Period [3]-->
+        <div class="modal fade" id="staffSpecialPeriodListModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staffSpecialPeriodListModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
+                <div id="modalContent" class="modal-content shadow">
+                    <div class="modal-header border-bottom-0">
+                        <h5 class="modal-title" id="staffSpecialPeriodListModalLabel">Personnel - Périodes Spéciales</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body py-0">
+                        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                            <h1 class="h2"></h1>
+                            <div class="btn-toolbar mb-2 mb-md-0">
+                                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Nouveau" 
+                                        onclick="$('#staffSpecialPeriodListModal').one('hidden.bs.modal', function() { loadStaffSpecialWorkPeriodForm(); }).modal('hide');">
+                                    Nouveau
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table id="staffSpecialPeriodTable" class="table table-striped caption-top">
+                                <caption>Liste des périodes spéciales assignées aux heures de travail du personnel</caption>
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th scope="col">#</th>
+                                        <th scope="col">Groupe du personnel</th>
+                                        <th scope="col">Personnel</th>
+                                        <th scope="col">Période</th>
+                                        <th scope="col">Date de début</th>
+                                        <th scope="col">Date de fin</th>
+                                        <th scope="col">Heures de travail</th>
+                                        <th scope="col">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for object in staff_special_work_periods %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ object.staff_business_hour.staff_scope }}</td>
+                                        <td>{{ object.staff_business_hour.staff }}</td>
+                                        <td>{{ object.special_work_period.name }}</td>
+                                        <td>{{ object.special_work_period.start_date }}</td>
+                                        <td>{{ object.special_work_period.end_date }}</td>
+                                        <td>
+                                            <dl class="row">
+                                            {% for business_hour in object.special_work_period.business_hours %}
+                                                <dt class="col-sm-3">{{ business_hour.start_time }} - {{ business_hour.end_time }} </dt>
+                                                <dd class="col-sm-9">
+                                                    <span class="vr me-1"></span>
+                                                    {% for day in business_hour.workweek_verbose %}
+                                                        <span class="badge text-bg-light me-1">{{ day }}</span>
+                                                    {% endfor %}
+                                                </dd>
+                                            {% endfor %}
+                                            </dl>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group me-2">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Éditer" 
+                                                        onclick="$('#staffSpecialPeriodListModal').one('hidden.bs.modal', function() { loadStaffSpecialWorkPeriodForm({{ object.id }}, undefined, undefined); }).modal('hide');">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                {% if object.special_work_period.start_date > today %}
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Supprimer" 
+                                                        onclick="$('#staffSpecialPeriodListModal').one('hidden.bs.modal', function() { loadDeleteForm('{% url 'calendars:staff-special-work-period-delete' object.id %}'); }).modal('hide');">
+                                                    <i class="bi bi-trash2"></i>
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="8" class="text-center text-secondary h4">
+                                            <i class="bi bi-info-circle-fill"></i> Pas de période spéciale assignée à l'heure de travail du personnel
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer flex-column border-top-0">
+                        <button type="button" class="btn btn-lg btn-light w-100 mx-0" data-bs-dismiss="modal">Fermer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--End Modal-->
+    </section>
+
+    <script>
+        function loadEventForm(objectId=null, startDate=currentDate(), endDate=null, startTime=currentTime(), endTime=null) {
+
+            let url = "{% url 'calendars:event-load-form' %}"
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                headers: { 
+                    "X-CSRFToken": '{{ csrf_token }}' 
+                },
+                data: {
+                    'object_id': objectId,
+                    'start_date': startDate,
+                    'end_date': endDate,
+                    'start_time': startTime,
+                    'end_time': endTime,
+                },
+                success: function (data) {
+                    console.log("SUCCESS!")
+                    $('#baseFormModal #modalContent').replaceWith(data)
+                    $('#baseFormModal').modal('show')
+                },
+                error: function (data) {
+                    console.log("ERROR: ", data)
+                }
+            });
+        }
+
+        function loadBusinessHourForm(objectId=null, startTime='08:30', endTime='17:30') {
+
+            let url = "{% url 'calendars:business-hour-load-form' %}"
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                headers: { 
+                    "X-CSRFToken": '{{ csrf_token }}' 
+                },
+                data: {
+                    'object_id': objectId,
+                    'start_time': startTime,
+                    'end_time': endTime,
+                },
+                success: function (data) {
+                    console.log("SUCCESS!")
+                    $('#baseFormModal #modalContent').replaceWith(data)
+                    $('#baseFormModal').modal('show')
+                },
+                error: function (data) {
+                    console.log("ERROR: ", data)
+                }
+            });
+        }
+
+        function loadBusinessHourBreakForm(objectId=null, businessHourId=null, startTime='13:00', endTime='14:00') {
+
+            let url = "{% url 'calendars:business-hour-break-load-form' %}"
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                headers: { 
+                    "X-CSRFToken": '{{ csrf_token }}' 
+                },
+                data: {
+                    'object_id': objectId,
+                    'start_time': startTime,
+                    'end_time': endTime,
+                    'business_hour_id': businessHourId,
+                },
+                success: function (data) {
+                    console.log("SUCCESS!")
+                    $('#baseFormModal #modalContent').replaceWith(data)
+                    $('#baseFormModal').modal('show')
+                },
+                error: function (data) {
+                    console.log("ERROR: ", data)
+                }
+            });
+        }
+
+        function loadStaffBusinessHourForm(objectId=null) {
+
+            let url = "{% url 'calendars:staff-business-hour-load-form' %}"
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                headers: { 
+                    "X-CSRFToken": '{{ csrf_token }}' 
+                },
+                data: {
+                    'object_id': objectId,
+                },
+                success: function (data) {
+                    console.log("SUCCESS!")
+                    /*document.getElementById('staffBusinesshourListModal').addEventListener('shown.bs.modal', event => {
+                        console.log('shown')
+                        $('#staffBusinesshourListModal').modal('hide')
+                    });*/
+                    $('#baseFormModal #modalContent').replaceWith(data)
+                    $('#baseFormModal').modal('show')
+                },
+                error: function (data) {
+                    console.log("ERROR: ", data)
+                }
+            });
+        }
+        
+        function loadSpecialWorkPeriodForm(objectId=null, startDate=currentDate(), endDate=null) {
+
+            console.log("NOW {% now "Y-m-d H:i" %}, {% now "DATE_FORMAT" %}");
+
+            let url = "{% url 'calendars:special-work-period-load-form' %}"
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                headers: { 
+                    "X-CSRFToken": '{{ csrf_token }}' 
+                },
+                data: {
+                    'object_id': objectId,
+                    'start_date': startDate,
+                    'end_date': endDate,
+                },
+                success: function (data) {
+                    console.log("SUCCESS!")
+                    $('#baseFormModal #modalContent').replaceWith(data)
+                    $('#baseFormModal').modal('show')
+                },
+                error: function (data) {
+                    console.log("ERROR: ", data)
+                }
+            });
+        }
+
+        function loadStaffSpecialWorkPeriodForm(objectId=null) {
+
+            let url = "{% url 'calendars:staff-special-work-period-load-form' %}"
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                headers: { 
+                    "X-CSRFToken": '{{ csrf_token }}' 
+                },
+                data: {
+                    'object_id': objectId,
+                },
+                success: function (data) {
+                    console.log("SUCCESS!")
+                    /*document.getElementById('staffSpecialPeriodListModal').addEventListener('shown.bs.modal', event => {
+                        console.log('shown')
+                        $('#staffSpecialPeriodListModal').modal('hide')
+                    });*/
+                    $('#baseFormModal #modalContent').replaceWith(data)
+                    $('#baseFormModal').modal('show')
+                },
+                error: function (data) {
+                    console.log("ERROR: ", data)
+                }
+            });
+        }
+    </script>
+    <script>
+        let businessHoursTable = new DataTable('#businessHours', {
+            // options
+        });
+        
+        let specialPeriodsTable = new DataTable('#specialPeriods', {
+            // options
+        });
+
+        let eventTable = new DataTable('#eventTable', {
+            // options
+        });
+
+        let staffBusinessHourTable = new DataTable('#staffBusinessHourTable', {
+            // options
+        });
+
+        let staffSpecialPeriodTable = new DataTable('#staffSpecialPeriodTable', {
+            // options
+        });
+    </script>
+
+{% endblock content %}

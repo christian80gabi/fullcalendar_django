@@ -1,0 +1,23 @@
+<div id="modalContent" class="modal-content modal-content rounded-4 shadow">
+	<div class="modal-header border-bottom-0">
+		<div class="modal-title">
+			<h5 id="modalLabel">Heure de travail - Pause</h5>
+			<small class="d-block">{% if object %}Éditer{% else %}Nouveau{% endif %}</small>
+		</div>
+		<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+	</div>
+	<div class="modal-body py-0">
+		{% if object %}
+		<form action="{% url 'calendars:business-hour-break-update' business_hour_id object.id %}" method="post">
+		{% else %}
+		<form action="{% url 'calendars:business-hour-break-create' business_hour_id %}" method="post">
+		{% endif %}
+		{% csrf_token %}
+			{{ form.as_p }}
+			<div class="modal-footer flex-column border-top-0">
+				<button type="submit" class="btn btn-lg btn-primary w-100 mx-0 mb-2">Enregistrer</button>
+				<button type="button" class="btn btn-lg btn-light w-100 mx-0" data-bs-dismiss="modal">Fermer</button>
+			</div>
+		</form>
+	</div>
+</div>

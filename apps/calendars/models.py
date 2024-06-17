@@ -5,6 +5,16 @@ from django.utils.translation import gettext_lazy as _
 from django.db import models
 
 
+class PERIOD:
+    DAY = 'DAY'
+    HOUR = 'HOUR'
+
+    UNITS = [
+        (DAY, 'Jour'),
+        (HOUR, 'Heure'),
+    ]
+
+
 class RepeatUnit(models.TextChoices):
     DAY = 'DAY', _('Jour')
     WEEK = 'WEEK', _('Semaine')
